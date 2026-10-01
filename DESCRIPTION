@@ -1,7 +1,7 @@
 Package: dipsim
 Type: Package
 Title: Interactive Ashenfelter-Dip Simulator for the budgetsc Pipeline
-Version: 0.2.2
+Version: 0.2.3
 Authors@R: person("Andre", "Bonfrer", role = c("aut", "cre"), email = "andre.bonfrer@deakin.edu.au")
 Description: A standalone Shiny app that simulates panels in which adoption of a
     budgeting feature is triggered by a transitory shock (an Ashenfelter dip),
@@ -22,7 +22,7 @@ Suggests:
     augMultiSynth,
     testthat (>= 3.0.0)
 Remotes:
-    andrebonfrer/Budgetx,
+    andrebonfrer/budgetsc,
     andrebonfrer/augMultiSynth,
     andrebonfrer/scmBayesPost
 Config/testthat/edition: 3
