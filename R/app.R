@@ -18,7 +18,7 @@
                     share_FastFood = 0, share_Alcohol = 0, share_Gambling = 0)
   p$L <- as.integer(input$L); p$H <- 39L; p$match_end <- as.integer(input$match_end)
   p$remedies <- input$remedies %||% character(0); p$z_cut <- input$z_cut; p$k_pre <- as.integer(input$k_pre)
-  p$matching <- input$matching; p$custom_outcomes <- input$custom_outcomes; p$max_donors <- as.integer(input$max_donors)
+  p$donor_eligibility <- input$donor_eligibility %||% "per_unit"; p$matching <- input$matching; p$custom_outcomes <- input$custom_outcomes; p$max_donors <- as.integer(input$max_donors)
   p$backend <- input$backend; p$seed <- as.integer(input$seed)
   p
 }
@@ -52,6 +52,8 @@ app_ui <- function() {
         shiny::conditionalPanel("input.matching == 'custom'",
           shiny::checkboxGroupInput("custom_outcomes", NULL, budgetsc::match_outcomes_wide(), budgetsc::match_outcomes_lean())),
         shiny::numericInput("max_donors", "max donors (screening)", d$max_donors),
+        shiny::selectInput("donor_eligibility", "Donor eligibility", c("per_unit", "global"), d$donor_eligibility),
+        shiny::helpText("per_unit: a donor must adopt more than H weeks after the treated unit (the rule the paper states). global: every later adopter is a donor for every treated unit, including those that adopt inside a treated unit's post window, which biases effects toward zero."),
         shiny::selectInput("backend", "SC backend", c("augmultisynth", "stub"), d$backend),
         shiny::numericInput("seed", "seed", d$seed),
         shiny::h4("Remedies"),
@@ -89,6 +91,7 @@ app_ui <- function() {
             shiny::tags$dt("Gap"), shiny::tags$dd("The adopter's outcome minus the synthetic control's, week by week, after removing the average difference over the matching window (an intercept). Averaged over adopters it is the event-time plot; averaged over the post window it is the estimated effect."),
             shiny::tags$dt("Baseline weeks (L)"), shiny::tags$dd("How many pre-adoption weeks the weights are fitted on. The paper uses 70 for public-launch adopters and 23 for pilot adopters."),
             shiny::tags$dt("Post window"), shiny::tags$dd("The 40 weeks from adoption (week 0) to week 39 over which the effect is averaged."),
+            shiny::tags$dt("Donor eligibility"), shiny::tags$dd("Donors are later adopters. With global eligibility every later adopter can be a donor for every adopter, including donors that start budgeting inside an adopter's post-adoption window; their outcomes then carry a treatment effect and the estimate is pulled toward zero, more for later adopters. Per-unit eligibility allows a donor only if it adopts more than H weeks after that adopter."),
             shiny::tags$dt("Held-out pre-weeks (match_end)"), shiny::tags$dd(paste("Weeks immediately before adoption that are deliberately NOT used when fitting the weights. They are set aside so they can act as a test:",
               "the weights were chosen without seeing them, so if the synthetic control still tracks the adopter through those weeks, it is capturing the adopter's underlying pattern rather than fitting noise.",
               "The average gap over those weeks is the held-out gap; near zero is reassuring, a clear positive or negative value means the counterfactual already diverges before adoption.",

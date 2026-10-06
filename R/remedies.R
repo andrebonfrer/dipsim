@@ -19,7 +19,7 @@
 unit_gaps <- function(run, outcome) {
   scfit <- readRDS(file.path(run$dir, "sc_fit.rds")); p <- readRDS(file.path(run$dir, "panel.rds")); data.table::setDT(p)
   Yp <- budgetsc::build_Ylist(p, outcome); Y <- Yp$Y_list[[1]]
-  w <- scfit$fit$weights_mat; tt <- scfit$treat_time; tr <- which(is.finite(tt))
+  w <- scfit$fit$weights_mat; tt <- scfit$treat_time; tr <- scfit$treated_idx %||% which(is.finite(tt))
   L <- run$spec$sample$n_lags; H <- run$spec$sample$n_leads; me <- scfit$fit$match_end %||% 0L; Tn <- ncol(Y)
   synth <- w %*% Y
   g <- matrix(NA_real_, length(tr), L + H + 1); dev <- matrix(NA_real_, length(tr), L + H + 1)
@@ -45,7 +45,7 @@ remedy_nodip <- function(ug, k_pre = 4L, z_cut = 1) {
 }
 
 remedy_reversion <- function(ug) {
-  Y <- ug$Y; dn <- which(!is.finite(ug$treat_time)); post <- which(ug$ev >= 0); m1 <- which(ug$ev == -1)
+  Y <- ug$Y; dn <- setdiff(seq_len(nrow(ug$Y)), ug$tr); post <- which(ug$ev >= 0); m1 <- which(ug$ev == -1)
   # phi from donors: lag-1 autocorrelation of within-unit residuals
   R <- Y[dn, , drop = FALSE] - rowMeans(Y[dn, , drop = FALSE], na.rm = TRUE)
   x <- as.vector(R[, -1]); l <- as.vector(R[, -ncol(R)]); ok <- is.finite(x) & is.finite(l)

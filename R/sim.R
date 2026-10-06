@@ -15,7 +15,7 @@ dip_defaults <- function() list(
   n_treated = 60L, n_later = 120L, n_weeks = 200L, phi = 0.9, sigma_u = 0.25,
   dip_selection = 3, type_selection = 1, covid = TRUE,
   effects = list(spend_log = 0, arrears_log = 0, arrears_length = 0, share_FastFood = 0, share_Alcohol = 0, share_Gambling = 0),
-  L = 23L, H = 39L, match_end = 0L, matching = "lean", custom_outcomes = NULL, max_donors = 1000L,
+  L = 23L, H = 39L, match_end = 0L, matching = "lean", donor_eligibility = "per_unit", custom_outcomes = NULL, max_donors = 1000L,
   backend = if (requireNamespace("augMultiSynth", quietly = TRUE)) "augmultisynth" else "stub",
   outcomes = c("numarrears", "total_spend", "liquidity_deficit_rate"), seed = 1L,
   remedies = c("nodip", "reversion"), z_cut = 1, k_pre = 4L)
@@ -50,6 +50,7 @@ dip_run <- function(p = dip_defaults(), root = file.path(tempdir(), "dipsim"), k
   spec <- budgetsc::spec_main("sample.n_lags" = as.integer(p$L), "sample.n_leads" = as.integer(p$H),
                               "sc.match_outcomes" = mo, "sc.match_end" = as.integer(p$match_end),
                               "sc.max_donors" = as.integer(p$max_donors), "sc.backend" = p$backend,
+                              "sc.donor_eligibility" = p$donor_eligibility,
                               "sc.parallel" = FALSE, "post.outcomes" = p$outcomes,
                               "sc.holdout_outcomes" = c("weekly_income", "monthly_loan_payment_w"))
   spec$name <- paste0("dipsim_", format(Sys.time(), "%H%M%S"), "_", sample.int(1e6, 1))
