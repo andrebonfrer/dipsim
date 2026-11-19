@@ -1,25 +1,29 @@
 Package: dipsim
 Type: Package
-Title: Interactive Ashenfelter-Dip Simulator for the budgetsc Pipeline
-Version: 0.3.0
+Title: Interactive Ashenfelter-Dip Simulator for Synthetic and Augmented Synthetic Control
+Version: 0.4.0
 Authors@R: person("Andre", "Bonfrer", role = c("aut", "cre"), email = "andre.bonfrer@deakin.edu.au")
 Description: A standalone Shiny app that simulates panels in which adoption of a
     budgeting feature is triggered by a transitory shock (an Ashenfelter dip),
-    runs the budgetsc synthetic-control stage on them, and shows how the bias
-    depends on baseline length, held-out matching weeks, the number of matched
-    outcomes, donor pool size and shock persistence. Built as a starting point
-    for adding further remedies.
+    runs the budgetsc synthetic-control stage on them with plain synthetic
+    control and ridge-augmented synthetic control fitted on the same panel, and
+    shows how the bias depends on the estimator, the augmentation penalty,
+    baseline length, held-out matching weeks, the number of matched outcomes,
+    donor pool size and shock persistence. Built as a starting point for adding
+    further remedies.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1)
 Imports:
     shiny (>= 1.7),
     data.table,
-    budgetsc (>= 0.5.0),
+    budgetsc (>= 0.6.2),
     graphics,
+    grDevices,
+    stats,
     utils
 Suggests:
-    augMultiSynth,
+    augMultiSynth (>= 0.3.9),
     testthat (>= 3.0.0)
 Remotes:
     andrebonfrer/budgetsc,
@@ -28,3 +32,4 @@ Remotes:
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.1

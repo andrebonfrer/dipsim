@@ -10,16 +10,17 @@ dip_grid(p = dip_defaults(), grid, reps = 1L, progress = NULL)
 \item{p}{Base parameters.}
 
 \item{grid}{data.frame of columns to vary (any of L, match_end, matching,
-n_later, phi, dip_selection, max_donors).}
+n_later, phi, dip_selection, max_donors, augment_lambda).}
 
 \item{reps}{Replications per cell.}
 
 \item{progress}{Optional function(i, n) called after each run.}
 }
 \value{
-data.table: one row per cell x rep x outcome with the summary
-statistics and the cell's factors.
+data.table: one row per cell x rep x estimator x outcome with the
+summary statistics, the augmentation diagnostics and the cell's factors.
 }
 \description{
-Repeat \code{dip_run()} over a design grid
+Each cell simulates one panel per replication and fits every estimator in
+\code{p$estimators} on it, so SC and ridge ASCM are compared on the same draws.
 }

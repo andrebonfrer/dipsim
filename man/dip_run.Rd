@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim.R
 \name{dip_run}
 \alias{dip_run}
-\title{One simulated panel, one SC fit}
+\title{One simulated panel, fitted with each requested estimator}
 \usage{
 dip_run(
   p = dip_defaults(),
@@ -13,17 +13,19 @@ dip_run(
 \arguments{
 \item{p}{Parameter list as from \code{\link[=dip_defaults]{dip_defaults()}} (missing entries filled).}
 
-\item{root}{Scratch directory for the budgetsc run (deleted afterwards
-unless \code{keep = TRUE}).}
+\item{root}{Scratch directory for the budgetsc runs (deleted afterwards).}
 
-\item{keep}{Logical; keep the run directory.}
+\item{keep}{Ignored (kept for compatibility); run directories are removed.}
 }
 \value{
 A list: \code{event_time} (gap by event week, matched and holdout
-outcomes), \code{summary} (per outcome: ate, ate_first8, heldout_gap, true
-effect), \code{shock_profile} (mean latent shock u by event week, treated
-units), \code{funnel}, \code{params}, \code{seconds}.
+outcomes, one block per estimator), \code{summary} (per estimator and outcome:
+ate, ate_first8, heldout_gap, true effect, bias, remedies), \code{augment}
+(per estimator: ridge penalty, mean and max negative weight mass,
+pre-period RMSE before and after augmentation), \code{shock_profile} (mean
+latent shock u by event week, treated units), \code{funnel}, \code{params},
+\code{seconds}.
 }
 \description{
-One simulated panel, one SC fit
+One simulated panel, fitted with each requested estimator
 }

@@ -10,5 +10,11 @@ dip_defaults()
 Named list.
 }
 \description{
-Default simulation parameters
+\code{estimators} chooses what is fitted on each simulated panel: \code{"sc"} (simplex
+synthetic control) and/or \code{"ascm"} (ridge-augmented synthetic control,
+budgetsc spec \code{sc.augment = "ridge"}, augMultiSynth >= 0.3.9). For ASCM,
+\code{augment_lambda = NULL} tunes the relative ridge penalty by in-time placebo
+forecasts on the fit's own donor pools (\code{augMultiSynth::tune_augment()}),
+with \code{augment_one_se} choosing the one-standard-error rule (default) or the
+minimum; a number fixes the penalty (\code{Inf} = no augmentation).
 }
