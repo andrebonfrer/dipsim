@@ -1,7 +1,7 @@
 Package: dipsim
 Type: Package
 Title: Interactive Ashenfelter-Dip Simulator for Synthetic and Augmented Synthetic Control
-Version: 0.4.0
+Version: 0.4.1
 Authors@R: person("Andre", "Bonfrer", role = c("aut", "cre"), email = "andre.bonfrer@deakin.edu.au")
 Description: A standalone Shiny app that simulates panels in which adoption of a
     budgeting feature is triggered by a transitory shock (an Ashenfelter dip),

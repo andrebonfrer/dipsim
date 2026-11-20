@@ -50,7 +50,7 @@ app_ui <- function() {
         shiny::fluidRow(shiny::column(6, shiny::numericInput("n_treated", "treated", d$n_treated)), shiny::column(6, shiny::numericInput("n_later", "later adopters (donors)", d$n_later))),
         shiny::numericInput("n_weeks", "weeks in panel", d$n_weeks),
         shiny::h5("True effects (0 = pure bias)"),
-        shiny::fluidRow(shiny::column(4, shiny::numericInput("eff_spend", "spend (log)", 0, step = 0.05)), shiny::column(4, shiny::numericInput("eff_arrears", "arrears (log)", 0, step = 0.1)),
+        shiny::fluidRow(shiny::column(4, shiny::numericInput("eff_spend", "spend (log; -0.3 = -26%)", 0, step = 0.05)), shiny::column(4, shiny::numericInput("eff_arrears", "arrears (log)", 0, step = 0.1)),
                         shiny::column(4, shiny::numericInput("eff_length", "length (wks)", 0, step = 1))),
         shiny::hr(), shiny::h4("Estimators"),
         shiny::checkboxGroupInput("estimators", NULL,
@@ -174,17 +174,28 @@ app_server <- function(input, output, session) {
   output$p_shock <- shiny::renderPlot({ r <- res(); sp <- r$shock_profile
     graphics::plot(sp$tau_k, sp$mean_u, type = "l", lwd = 2, xlab = "weeks since adoption", ylab = "mean latent shock u (treated)")
     graphics::abline(h = 0, lty = 2); graphics::abline(v = 0, col = "red") })
-  output$p_gap <- shiny::renderPlot({ r <- res(); e <- r$event_time[outcome == input$oc]
+  # After each run, show the first outcome that carries a non-zero true effect
+  # (otherwise the plot defaults to numarrears and a spend effect looks absent).
+  shiny::observeEvent(res(), {
+    s <- res()$summary; nz <- unique(s[is.finite(true_effect) & true_effect != 0, outcome])
+    if (length(nz) && !(input$oc %in% nz)) shiny::updateSelectInput(session, "oc", selected = nz[1])
+    if (length(nz) && !(input$grid_oc %in% nz)) shiny::updateSelectInput(session, "grid_oc", selected = nz[1])
+  })
+  output$p_gap <- shiny::renderPlot({ r <- res(); shiny::req(input$oc); e <- r$event_time[outcome == input$oc]
     tv <- r$summary[outcome == input$oc, true_effect][1]
+    has_tv <- length(tv) && is.finite(tv) && tv != 0
     ests <- unique(e$estimator)
-    graphics::plot(range(e$tau_k), range(c(e$mean_gap, 0), na.rm = TRUE), type = "n", xlab = "weeks since adoption",
-                   ylab = "treated - synthetic", main = input$oc)
+    graphics::plot(range(e$tau_k), range(c(e$mean_gap, 0, if (has_tv) tv), na.rm = TRUE), type = "n", xlab = "weeks since adoption",
+                   ylab = "treated - synthetic", main = if (has_tv) sprintf("%s (true effect %.3g)", input$oc, tv) else sprintf("%s (true effect 0)", input$oc))
     me <- r$params$match_end; if (me > 0) graphics::rect(-me - 0.5, -1e9, -0.5, 1e9, col = grDevices::adjustcolor("orange", 0.15), border = NA)
     graphics::abline(h = 0, lty = 2); graphics::abline(v = 0, col = "red")
-    if (length(tv) && is.finite(tv) && tv != 0) graphics::abline(h = tv, col = "darkgreen", lty = 3)
+    if (has_tv) {
+      graphics::segments(0, tv, max(e$tau_k), tv, col = "darkgreen", lty = 3, lwd = 2) }
     for (k in ests) { s <- e[estimator == k][order(tau_k)]
       graphics::lines(s$tau_k, s$mean_gap, type = "b", pch = 16, cex = 0.6, col = .est_cols[[k]], lty = if (k == "sc") 1 else 2) }
-    graphics::legend("topleft", .estimator_label(ests), col = .est_cols[ests], lty = ifelse(ests == "sc", 1, 2), pch = 16, bty = "n", cex = 0.85) })
+    lab <- .estimator_label(ests); cl <- unlist(.est_cols[ests]); lt <- ifelse(ests == "sc", 1, 2); ph <- rep(16, length(ests))
+    if (has_tv) { lab <- c(lab, "true effect"); cl <- c(cl, "darkgreen"); lt <- c(lt, 3); ph <- c(ph, NA) }
+    graphics::legend("topleft", lab, col = cl, lty = lt, pch = ph, lwd = ifelse(lab == "true effect", 2, 1), bty = "n", cex = 0.85) })
   output$t_summary <- shiny::renderTable({ s <- data.table::copy(res()$summary)
     s[, estimator := .estimator_label(estimator)]
     keep <- intersect(c("estimator", "outcome", "matched", "pre_mean", "true_effect", "ate", "bias", "bias_pct_baseline", "bias_pct_effect", "bias_first8", "heldout_gap",

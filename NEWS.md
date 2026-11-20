@@ -1,3 +1,12 @@
+# dipsim 0.4.1
+
+- App: after each run the gap plot and interpretation switch to the first
+  outcome with a non-zero true effect (previously they stayed on
+  `numarrears`, so a spend effect looked as if it had not been applied).
+  The plot title states the true effect, the true-effect line is drawn over
+  the post window, kept inside the y-range and added to the legend.
+- App: the spend effect input is labelled as a log change (-0.3 is about -26%).
+
 # dipsim 0.4.0
 
 - Ridge-augmented synthetic control (ASCM). `dip_run()` fits every estimator in
