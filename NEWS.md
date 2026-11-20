@@ -1,3 +1,19 @@
+# dipsim 0.4.2
+
+- True effects are now computed exactly for the units and window the
+  estimator uses. `dip_run()` builds a counterfactual twin of the simulated
+  panel (treated post-adoption spend divided by `exp(spend_log)`, arrears
+  count by `exp(arrears_log)`, arrears length reduced by `arrears_length`),
+  passes both panels through budgetsc's `load_panel()` and
+  `derive_outcomes()`, and takes the per-adopter post-minus-pre difference,
+  the same contrast as the gap estimator. Previously the spend effect was
+  scaled by the mean spend of all untreated rows (donors and treated
+  pre-periods pooled), and derived outcomes such as
+  `liquidity_deficit_rate` were given a true effect of zero even when a
+  spend effect changed them.
+- Bias columns are computed after all estimators are fitted
+  (internal `.add_bias()`); results are otherwise unchanged.
+
 # dipsim 0.4.1
 
 - App: after each run the gap plot and interpretation switch to the first

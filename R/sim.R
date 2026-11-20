@@ -86,16 +86,9 @@ dip_defaults <- function() list(
   first8 <- et[window == "post" & tau_k < 8, list(ate_first8 = mean(mean_gap)), by = outcome]
   held <- d$fit_summary[window == "heldout_pre", list(outcome, heldout_gap = mean_gap)]
   summ <- merge(merge(ate, first8, by = "outcome"), held, by = "outcome", all.x = TRUE)
-  summ[, true_effect := .true_effect(outcome, p$effects, panel)]
   summ[, matched := outcome %in% mo]
   summ <- merge(summ, rem, by = "outcome", all.x = TRUE)
   if ("pseudo_ate" %in% names(summ)) summ[, ate_placebo_adj := ate - pseudo_ate]
-  summ[, bias := ate - true_effect]
-  summ[, bias_first8 := ate_first8 - true_effect]
-  summ[, bias_pct_baseline := 100 * bias / abs(pre_mean)]
-  summ[, bias_pct_effect := data.table::fifelse(true_effect != 0, 100 * bias / abs(true_effect), NA_real_)]
-  for (v in intersect(c("ate_nodip", "ate_reversion", "ate_placebo_adj"), names(summ)))
-    summ[, (sub("^ate_", "bias_", v)) := get(v) - true_effect]
 
   # augmentation diagnostics (penalty, extrapolation, pre-period fit before/after)
   scfit <- readRDS(file.path(run$dir, "sc_fit.rds"))
@@ -155,6 +148,8 @@ dip_run <- function(p = dip_defaults(), root = file.path(tempdir(), "dipsim"), k
   fits <- lapply(est, function(e) .fit_estimator(p, e, mo, root, panel))
   names(fits) <- est
   tr <- fits[[1]]$treated
+  te <- .true_effect(p, panel, tr, root, mo)
+  for (k in names(fits)) fits[[k]]$summary <- .add_bias(fits[[k]]$summary, te)
   sp <- panel[tr, on = "customer_id"][, list(mean_u = mean(u)), by = list(tau_k = wID - treat_wID)][tau_k >= -p$L & tau_k <= p$H][order(tau_k)]
   list(event_time = rbindlist(lapply(fits, `[[`, "event_time"), fill = TRUE),
        summary = rbindlist(lapply(fits, `[[`, "summary"), fill = TRUE),
@@ -163,17 +158,58 @@ dip_run <- function(p = dip_defaults(), root = file.path(tempdir(), "dipsim"), k
        seconds = as.numeric(difftime(Sys.time(), t0, units = "secs")))
 }
 
-# True effect per outcome, on the outcome's scale, from treated units'
-# pre-adoption means (approximate for the multiplicative effects).
-.true_effect <- function(outcomes, eff, panel) {
-  pre <- panel[D == 0]
-  spend_cols <- grep("^spend_", names(pre), value = TRUE)
-  base_spend <- mean(rowSums(pre[, spend_cols, with = FALSE]))
-  vapply(outcomes, function(o) switch(o,
-    total_spend = (exp(eff$spend_log) - 1) * base_spend,
-    numarrears  = (exp(eff$arrears_log) - 1) * mean(pre$numarrears),
-    lengtharrears = eff$arrears_length * mean(pre$numarrears > 0),
-    0), numeric(1))
+# True effect per outcome: the effect on the treated units the estimator uses,
+# averaged over the same post window and net of the same pre-window intercept
+# as the gap estimator. Built from a counterfactual twin of the simulated
+# panel: the treated rows' spend columns divided by exp(spend_log) (spend is
+# multiplicative in sim_panel, so this is Y(0) up to rounding to cents), the
+# arrears count divided by exp(arrears_log) (its expectation under no
+# effect) and the arrears length reduced by arrears_length. Both panels then
+# go through budgetsc's own load_panel() and derive_outcomes(), so winsorising,
+# rolling rates and liquidity indicators are applied exactly as for the fit.
+.true_effect <- function(p, panel, tr, root, mo) {
+  out <- stats::setNames(numeric(length(p$outcomes)), p$outcomes)
+  eff <- p$effects
+  if (all(unlist(eff[c("spend_log", "arrears_log", "arrears_length")]) == 0)) return(out)
+  y0 <- data.table::copy(panel)
+  sc <- grep("^(spend_|irs_spend_)", names(y0), value = TRUE)
+  if (eff$spend_log != 0) y0[D == 1L, (sc) := lapply(.SD, function(x) x * exp(-eff$spend_log)), .SDcols = sc]
+  if (eff$arrears_log != 0) { y0[, numarrears := as.numeric(numarrears)]; y0[D == 1L, numarrears := numarrears * exp(-eff$arrears_log)] }
+  if (eff$arrears_length != 0) y0[D == 1L & numarrears > 0, lengtharrears := pmax(7, lengtharrears - eff$arrears_length)]
+  f0 <- file.path(root, "Processed", "analysis_panel_y0.rds")
+  saveRDS(y0[, !c("u", "lat", "D")], f0); on.exit(unlink(f0), add = TRUE)
+  spec <- .estimator_spec(p, "sc", mo)
+  der <- function(file) {
+    s <- spec; s$data$panel_file <- file
+    x <- budgetsc::load_panel(s, root)
+    budgetsc::derive_outcomes(x, focal = s$derive$focal_spend, winsor_probs = s$derive$winsor_probs,
+                              roll_n = s$derive$roll_n, cv_basis = s$derive$cv_basis)
+    x[tr[, list(customer_id, treat_wID)], on = "customer_id", nomatch = NULL]
+  }
+  a <- der(file.path(root, "Processed", "analysis_panel.rds")); b <- der(f0)
+  data.table::setkey(a, customer_id, wID); data.table::setkey(b, customer_id, wID)
+  tau <- a$wID - a$treat_wID
+  post <- tau >= 0 & tau <= p$H
+  pre <- tau >= -p$L & tau <= -(p$match_end + 1L)
+  for (o in intersect(p$outcomes, names(a))) {          # per adopter, then averaged, as the gap estimator does
+    d <- data.table::data.table(id = a$customer_id, d = a[[o]] - b[[o]], post, pre)
+    u <- d[, list(v = mean(d[post]) - mean(d[pre])), by = id]
+    out[[o]] <- mean(u$v, na.rm = TRUE)
+  }
+  out
+}
+
+# Bias of each estimate (and remedy) against the true effect.
+.add_bias <- function(summ, te) {
+  summ[, true_effect := unname(te[outcome])]
+  summ[is.na(true_effect), true_effect := 0]
+  summ[, bias := ate - true_effect]
+  summ[, bias_first8 := ate_first8 - true_effect]
+  summ[, bias_pct_baseline := 100 * bias / abs(pre_mean)]
+  summ[, bias_pct_effect := data.table::fifelse(true_effect != 0, 100 * bias / abs(true_effect), NA_real_)]
+  for (v in intersect(c("ate_nodip", "ate_reversion", "ate_placebo_adj"), names(summ)))
+    summ[, (sub("^ate_", "bias_", v)) := get(v) - true_effect]
+  summ
 }
 
 #' Repeat `dip_run()` over a design grid
@@ -204,7 +240,7 @@ dip_grid <- function(p = dip_defaults(), grid, reps = 1L, progress = NULL) {
 utils::globalVariables(c("window", "mean_gap", "tau_k", "outcome", "true_effect", "matched", "role", "pseudo_ate",
                          "ate_placebo_adj", "bias", "pre_mean", "bias_pct_baseline", "bias_pct_effect", "ate",
                          "treat_wID", "u", "wID", "D", "numarrears", "customer_id", "estimator", "bias_first8",
-                         "ate_first8", "lambda", "neg_mass"))
+                         "ate_first8", "lambda", "neg_mass", "lengtharrears", "id", "v"))
 
 
 #' Plain-language interpretation of one run
